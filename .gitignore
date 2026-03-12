@@ -2,3 +2,5 @@ nyc_taxi_ml_dataset_2024_2025.parquet
 .venv
 .venv/*
 ai_reference.ipynb
+.ipynb_checkpoints
+__pycache__

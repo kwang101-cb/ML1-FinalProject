@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NYC Taxi ETL Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow: #F7C500;
+    --yellow-light: #FFE066;
+    --yellow-dim: #A88700;
+    --black: #0A0A0A;
+    --dark: #111111;
+    --panel: #181818;
+    --border: #2A2A2A;
+    --gray: #888888;
+    --white: #F0F0F0;
+    --uber-blue: #09f;
+    --yellow-taxi: #F7C500;
+    --weather-teal: #00D4AA;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 80%, #1a1400 0%, #0A0A0A 70%);
+  }
+
+  /* Grid lines */
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(247,197,0,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(247,197,0,0.06) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+
+  /* Statue of Liberty SVG silhouette */
+  .liberty-silhouette {
+    position: absolute;
+    bottom: 0;
+    right: 5%;
+    width: 260px;
+    opacity: 0.07;
+    filter: drop-shadow(0 0 30px rgba(247,197,0,0.4));
+    pointer-events: none;
+    animation: floatLib 8s ease-in-out infinite;
+  }
+
+  @keyframes floatLib {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .hero-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--yellow);
+    text-transform: uppercase;
+    border: 1px solid var(--yellow-dim);
+    padding: 6px 18px;
+    margin-bottom: 28px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(56px, 10vw, 130px);
+    line-height: 0.9;
+    color: var(--yellow);
+    text-align: center;
+    letter-spacing: -1px;
+    text-shadow: 0 0 80px rgba(247,197,0,0.3);
+    animation: fadeDown 0.7s 0.1s ease both;
+  }
+
+  .hero-title span {
+    color: var(--white);
+    display: block;
+    font-size: 0.55em;
+    letter-spacing: 6px;
+    text-shadow: none;
+  }
+
+  .hero-subtitle {
+    margin-top: 24px;
+    font-size: 16px;
+    font-weight: 300;
+    letter-spacing: 3px;
+    color: var(--gray);
+    text-align: center;
+    max-width: 600px;
+    animation: fadeDown 0.8s 0.2s ease both;
+  }
+
+  .hero-badges {
+    display: flex;
+    gap: 14px;
+    margin-top: 36px;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeDown 0.9s 0.3s ease both;
+  }
+
+  .badge {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 8px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--yellow);
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--gray);
+    animation: pulse 2s infinite;
+  }
+
+  .scroll-hint::after {
+    content: '';
+    width: 1px;
+    height: 40px;
+    background: linear-gradient(to bottom, var(--yellow), transparent);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SECTION LABELS ── */
+  .section {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 80px 40px;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--yellow-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 5vw, 60px);
+    line-height: 1;
+    color: var(--white);
+    margin-bottom: 48px;
+  }
+
+  .section-title em {
+    color: var(--yellow);
+    font-style: normal;
+  }
+
+  /* ── PIPELINE ── */
+  .pipeline-section {
+    background: var(--dark);
+    padding: 80px 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pipeline-section::before {
+    content: 'ETL';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 400px;
+    color: rgba(247,197,0,0.015);
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  .pipeline-grid {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+
+  .pipeline-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--yellow-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .pipeline-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 4vw, 55px);
+    color: var(--white);
+    text-align: center;
+    margin-bottom: 64px;
+  }
+
+  .pipeline-title em { color: var(--yellow); font-style: normal; }
+
+  /* Phase label strip */
+  .phase-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+
+  .phase-tag {
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    padding: 6px;
+    text-transform: uppercase;
+  }
+
+  .phase-tag.extract { color: #00D4AA; }
+  .phase-tag.transform { color: var(--yellow); }
+  .phase-tag.load { color: #FF6B6B; }
+
+  /* Three streams */
+  .streams {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px;
+    position: relative;
+  }
+
+  .stream {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* Node cards */
+  .node {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 20px 22px;
+    position: relative;
+    transition: border-color 0.2s;
+    animation: nodeIn 0.5s ease both;
+  }
+
+  .node:hover {
+    border-color: var(--yellow-dim);
+  }
+
+  .node::before {
+    content: attr(data-step);
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--border);
+    letter-spacing: 1px;
+  }
+
+  .node-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .node-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .node-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+
+  .node-desc {
+    font-size: 12px;
+    font-weight: 300;
+    color: var(--gray);
+    line-height: 1.5;
+  }
+
+  .node-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    color: var(--gray);
+    text-transform: uppercase;
+  }
+
+  /* Stream color accents */
+  .stream-weather .node { border-left: 3px solid var(--weather-teal); }
+  .stream-yellow  .node { border-left: 3px solid var(--yellow-taxi); }
+  .stream-uber    .node { border-left: 3px solid #6B8EFF; }
+
+  .stream-weather .node-name { color: var(--weather-teal); }
+  .stream-yellow  .node-name { color: var(--yellow-taxi); }
+  .stream-uber    .node-name { color: #6B8EFF; }
+
+  /* Connector arrow between stages */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    position: relative;
+  }
+
+  .connector::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 1px;
+    height: 100%;
+    background: var(--border);
+  }
+
+  .connector-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 2px solid var(--yellow-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--yellow);
+    z-index: 1;
+  }
+
+  /* Merge zone */
+  .merge-zone {
+    margin-top: 40px;
+    position: relative;
+  }
+
+  /* Converging lines SVG */
+  .converge-svg {
+    display: block;
+    width: 100%;
+    height: 80px;
+  }
+
+  .merge-node {
+    background: var(--panel);
+    border: 2px solid var(--yellow);
+    padding: 28px 36px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 32px;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .merge-node::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, rgba(247,197,0,0.06), transparent 70%);
+    pointer-events: none;
+  }
+
+  .merge-icon {
+    font-size: 48px;
+    line-height: 1;
+  }
+
+  .merge-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 38px;
+    color: var(--yellow);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .merge-sub {
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--gray);
+    letter-spacing: 1px;
+  }
+
+  .merge-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 4px 10px;
+    border: 1px solid var(--yellow-dim);
+    color: var(--yellow);
+    letter-spacing: 1px;
+  }
+
+  .merge-counts {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: right;
+  }
+
+  .merge-count-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .merge-count-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--yellow);
+    line-height: 1;
+  }
+
+  .merge-count-label {
+    font-size: 10px;
+    color: var(--gray);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── STATS SECTION ── */
+  .stats-section {
+    background: var(--black);
+    padding: 80px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .stats-grid {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+
+  /* Per-stream stats */
+  .stream-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px;
+    margin-bottom: 40px;
+  }
+
+  .stream-stat-card {
+    background: var(--panel);
+    padding: 28px;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+
+  .stream-stat-card.weather-card { border-top: 3px solid var(--weather-teal); }
+  .stream-stat-card.yellow-card  { border-top: 3px solid var(--yellow-taxi); }
+  .stream-stat-card.uber-card    { border-top: 3px solid #6B8EFF; }
+
+  .stream-stat-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+
+  .weather-card .stream-stat-title { color: var(--weather-teal); }
+  .yellow-card  .stream-stat-title { color: var(--yellow-taxi); }
+  .uber-card    .stream-stat-title { color: #6B8EFF; }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-row:last-child { border-bottom: none; }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--gray);
+    letter-spacing: 1px;
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--white);
+    font-weight: 500;
+  }
+
+  /* Final totals */
+  .totals-card {
+    background: var(--panel);
+    border: 2px solid var(--yellow);
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .totals-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 50%, rgba(247,197,0,0.05), transparent 60%);
+    pointer-events: none;
+  }
+
+  .totals-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--yellow);
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .totals-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--yellow-dim), transparent);
+  }
+
+  .totals-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    margin-bottom: 40px;
+  }
+
+  .total-item {
+    background: var(--dark);
+    padding: 24px 20px;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .total-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 3vw, 48px);
+    color: var(--yellow);
+    line-height: 1;
+    display: block;
+  }
+
+  .total-sub {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gray);
+    text-transform: uppercase;
+    margin-top: 6px;
+    display: block;
+  }
+
+  /* Stratified table */
+  .stratified-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    color: var(--white);
+    margin-bottom: 16px;
+  }
+
+  .strat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .strat-table th {
+    background: var(--dark);
+    padding: 10px 16px;
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--yellow-dim);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .strat-table td {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--gray);
+  }
+
+  .strat-table td:first-child {
+    font-family: 'DM Mono', monospace;
+    color: var(--white);
+    font-size: 11px;
+  }
+
+  .strat-table td.num {
+    font-family: 'DM Mono', monospace;
+    color: var(--white);
+    text-align: right;
+  }
+
+  .strat-table tr:hover td {
+    background: rgba(247,197,0,0.02);
+  }
+
+  .bar-cell {
+    width: 120px;
+    padding: 9px 16px;
+  }
+
+  .bar-bg {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--yellow);
+  }
+
+  .provider-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--dark);
+    border-top: 1px solid var(--border);
+    padding: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .footer-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .footer-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--yellow);
+    letter-spacing: 2px;
+  }
+
+  .footer-sub {
+    font-size: 12px;
+    color: var(--gray);
+    letter-spacing: 2px;
+  }
+
+  .footer-right {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--gray);
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  /* ── ANIMATE ── */
+  @keyframes nodeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .fade-in.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .streams, .stream-stats, .totals-grid { grid-template-columns: 1fr; }
+    .merge-node { grid-template-columns: 1fr; }
+    .merge-counts { text-align: left; flex-direction: row; flex-wrap: wrap; }
+    .phase-strip { grid-template-columns: 1fr; }
+    .section, .pipeline-grid, .stats-grid { padding: 40px 20px; }
+  }
+
+  /* Pulsing glow on merge node */
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(247,197,0,0.15); }
+    50% { box-shadow: 0 0 50px rgba(247,197,0,0.35); }
+  }
+  .merge-node { animation: glowPulse 4s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ HERO ═══════════════════════════════════════ -->
+<section class="hero">
+  <!-- Statue of Liberty SVG Silhouette -->
+  <svg class="liberty-silhouette" viewBox="0 0 200 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Base/Pedestal -->
+    <rect x="60" y="440" width="80" height="60" fill="#F7C500"/>
+    <rect x="70" y="410" width="60" height="32" fill="#F7C500"/>
+    <!-- Body/Robe -->
+    <path d="M75 250 Q65 300 55 410 L145 410 Q135 300 125 250 Z" fill="#F7C500"/>
+    <!-- Torso -->
+    <rect x="78" y="180" width="44" height="75" fill="#F7C500"/>
+    <!-- Left arm holding tablet -->
+    <path d="M78 200 Q55 210 40 220 L44 235 Q58 226 80 216 Z" fill="#F7C500"/>
+    <!-- Tablet -->
+    <rect x="28" y="215" width="20" height="25" fill="#F7C500"/>
+    <!-- Right arm raised -->
+    <path d="M122 190 Q145 170 155 145 L162 150 Q153 178 128 200 Z" fill="#F7C500"/>
+    <!-- Torch -->
+    <rect x="157" y="125" width="10" height="30" fill="#F7C500"/>
+    <ellipse cx="162" cy="120" rx="10" ry="15" fill="#F7C500"/>
+    <ellipse cx="162" cy="108" rx="6" ry="10" fill="#FFE066"/>
+    <!-- Head -->
+    <circle cx="100" cy="160" r="22" fill="#F7C500"/>
+    <!-- Crown spikes -->
+    <polygon points="100,130 95,142 105,142" fill="#F7C500"/>
+    <polygon points="112,133 108,145 118,143" fill="#F7C500"/>
+    <polygon points="88,133 82,143 92,145" fill="#F7C500"/>
+    <polygon points="120,140 117,152 127,150" fill="#F7C500"/>
+    <polygon points="80,140 73,150 83,152" fill="#F7C500"/>
+    <!-- Rope/chain detail -->
+    <path d="M80 280 Q100 290 120 280" stroke="#0A0A0A" stroke-width="3" fill="none"/>
+    <path d="M72 320 Q100 335 128 320" stroke="#0A0A0A" stroke-width="3" fill="none"/>
+    <path d="M65 360 Q100 377 135 360" stroke="#0A0A0A" stroke-width="3" fill="none"/>
+  </svg>
+
+  <div class="hero-tag">Data Engineering · NYC Congestion Study</div>
+  <h1 class="hero-title">
+    NYC TAXI
+    <span>ETL PIPELINE</span>
+  </h1>
+  <p class="hero-subtitle">Extract · Transform · Load — Building the foundation for NYC congestion pricing analysis</p>
+  <div class="hero-badges">
+    <div class="badge">JAN 2024 – NOV 2025</div>
+    <div class="badge">3 DATA SOURCES</div>
+    <div class="badge">STRATIFIED SAMPLING</div>
+    <div class="badge">CONGESTION PRICING</div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ═══════════════════════════════════════ PIPELINE ═══════════════════════════════════════ -->
+<section class="pipeline-section">
+  <div class="pipeline-grid">
+    <p class="pipeline-label">Step 1 — Data Engineering Process</p>
+    <h2 class="pipeline-title">THREE STREAMS, <em>ONE DATASET</em></h2>
+
+    <!-- Phase labels -->
+    <div class="phase-strip">
+      <div class="phase-tag extract">① Extract — APIs</div>
+      <div class="phase-tag transform">② Transform &amp; Encode</div>
+      <div class="phase-tag load">③ Clean &amp; Enrich</div>
+    </div>
+
+    <!-- Three parallel streams -->
+    <div class="streams">
+
+      <!-- WEATHER STREAM -->
+      <div class="stream stream-weather fade-in">
+
+        <div class="node" data-step="1.1.1">
+          <div class="node-header">
+            <div class="node-icon">🌦</div>
+            <div>
+              <div class="node-name">WEATHER API</div>
+            </div>
+          </div>
+          <div class="node-desc">Open-Meteo Historical Archive API · NYC coords (40.71°N, 74.00°W) · Hourly granularity · Jan 2024 → Nov 2025</div>
+          <div class="node-tags">
+            <span class="tag">open-meteo.com</span>
+            <span class="tag">REST</span>
+            <span class="tag">JSON</span>
+          </div>
+        </div>
+
+        <div class="connector"><div class="connector-dot">↓</div></div>
+
+        <div class="node" data-step="1.1.1.2">
+          <div class="node-header">
+            <div class="node-icon">🔢</div>
+            <div>
+              <div class="node-name">WMO ENCODING</div>
+            </div>
+          </div>
+          <div class="node-desc">WMO code classification: 0→clear · 1-3→cloudy · 45/48→fog · 61-82→rain · 71-86→snow · 95-99→storm</div>
+          <div class="node-tags">
+            <span class="tag">hot encoding</span>
+            <span class="tag">weather_type</span>
+            <span class="tag">6 categories</span>
+          </div>
+        </div>
+
+        <div class="connector"><div class="connector-dot">↓</div></div>
+
+        <div class="node" data-step="1.2.3-4">
+          <div class="node-header">
+            <div class="node-icon">🔗</div>
+            <div>
+              <div class="node-name">HOURLY JOIN KEY</div>
+            </div>
+          </div>
+          <div class="node-desc">pickup_datetime floored to hour → left-join key for merging to taxi streams. Columns: temperature, precipitation, windspeed, visibility, weathercode, weather_type</div>
+          <div class="node-tags">
+            <span class="tag">floor('h')</span>
+            <span class="tag">left join</span>
+            <span class="tag">6 features</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- YELLOW TAXI STREAM -->
+      <div class="stream stream-yellow fade-in" style="animation-delay:0.1s">
+
+        <div class="node" data-step="1.1.2.4">
+          <div class="node-header">
+            <div class="node-icon">🚕</div>
+            <div>
+              <div class="node-name">YELLOW TAXI API</div>
+            </div>
+          </div>
+          <div class="node-desc">NYC TLC open data portal · 23 monthly Parquet files (2024-01 → 2025-11) · provider = 1</div>
+          <div class="node-tags">
+            <span class="tag">TLC CloudFront</span>
+            <span class="tag">Parquet</span>
+            <span class="tag">23 files</span>
+          </div>
+        </div>
+
+        <div class="connector"><div class="connector-dot">↓</div></div>
+
+        <div class="node" data-step="1.1.2.5">
+          <div class="node-header">
+            <div class="node-icon">⚙️</div>
+            <div>
+              <div class="node-name">STANDARDIZE</div>
+            </div>
+          </div>
+          <div class="node-desc">Rename tpep_pickup/dropoff_datetime · mta_tax → tax · Airport_fee → airport_fee · trip_time (seconds) · cbd_congestion_fee = 0 for 2024 · Remove 10 vendor-specific columns</div>
+          <div class="node-tags">
+            <span class="tag">rename</span>
+            <span class="tag">14 cols</span>
+            <span class="tag">schema match</span>
+          </div>
+        </div>
+
+        <div class="connector"><div class="connector-dot">↓</div></div>
+
+        <div class="node" data-step="1.2.2">
+          <div class="node-header">
+            <div class="node-icon">🧹</div>
+            <div>
+              <div class="node-name">CLEAN &amp; ENRICH</div>
+            </div>
+          </div>
+          <div class="node-desc">Remove negatives · Outlier removal (dist &lt;100mi, time &lt;3h, fare &lt;$500) · Speed filter 3–80 mph · Valid LocationIDs 1–263 · Add in_cbd_zone, speed_mph, cost_per_mile, cbd_congestion_fee</div>
+          <div class="node-tags">
+            <span class="tag">outlier removal</span>
+            <span class="tag">cbd zone</span>
+            <span class="tag">20 features</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- UBER STREAM -->
+      <div class="stream stream-uber fade-in" style="animation-delay:0.2s">
+
+        <div class="node" data-step="1.1.2.1">
+          <div class="node-header">
+            <div class="node-icon">🚗</div>
+            <div>
+              <div class="node-name">UBER / HVFHV API</div>
+            </div>
+          </div>
+          <div class="node-desc">NYC TLC High Volume FHV records · 23 monthly Parquet files · Includes Lyft + Uber combined. HV0003 = Uber only</div>
+          <div class="node-tags">
+            <span class="tag">TLC CloudFront</span>
+            <span class="tag">HVFHV</span>
+            <span class="tag">23 files</span>
+          </div>
+        </div>
+
+        <div class="connector"><div class="connector-dot">↓</div></div>
+
+        <div class="node" data-step="1.1.2.2-3">
+          <div class="node-header">
+            <div class="node-icon">🔍</div>
+            <div>
+              <div class="node-name">FILTER &amp; TRANSFORM</div>
+            </div>
+          </div>
+          <div class="node-desc">Filter hvfhs_license_num == HV0003 · Rename trip_miles → trip_distance · base_passenger_fare → fare_amount · sales_tax → tax · Compute total_amount from 7 fare components · provider = 2</div>
+          <div class="node-tags">
+            <span class="tag">HV0003 filter</span>
+            <span class="tag">rename</span>
+            <span class="tag">14 cols</span>
+          </div>
+        </div>
+
+        <div class="connector"><div class="connector-dot">↓</div></div>
+
+        <div class="node" data-step="1.2.1">
+          <div class="node-header">
+            <div class="node-icon">🧹</div>
+            <div>
+              <div class="node-name">CLEAN &amp; ENRICH</div>
+            </div>
+          </div>
+          <div class="node-desc">Fix trip_time bug (recalculate from timestamps) · Remove negatives &amp; outliers · Speed filter 3–80 mph · Valid LocationIDs · Add in_cbd_zone, speed_mph, cost_per_mile · CBD fee from Jan 5 2025</div>
+          <div class="node-tags">
+            <span class="tag">bug fix</span>
+            <span class="tag">cbd zone</span>
+            <span class="tag">20 features</span>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /streams -->
+
+    <!-- Converging SVG -->
+    <div class="merge-zone">
+      <svg class="converge-svg" viewBox="0 0 1200 80" preserveAspectRatio="none">
+        <!-- Left stream line (weather) -->
+        <path d="M 200 0 Q 200 40 600 75" stroke="#00D4AA" stroke-width="1.5" fill="none" stroke-dasharray="4 4" opacity="0.6"/>
+        <!-- Center stream line (yellow) -->
+        <path d="M 600 0 L 600 75" stroke="#F7C500" stroke-width="1.5" fill="none" stroke-dasharray="4 4" opacity="0.6"/>
+        <!-- Right stream line (uber) -->
+        <path d="M 1000 0 Q 1000 40 600 75" stroke="#6B8EFF" stroke-width="1.5" fill="none" stroke-dasharray="4 4" opacity="0.6"/>
+        <!-- Merge point dots -->
+        <circle cx="200" cy="2" r="4" fill="#00D4AA"/>
+        <circle cx="600" cy="2" r="4" fill="#F7C500"/>
+        <circle cx="1000" cy="2" r="4" fill="#6B8EFF"/>
+        <circle cx="600" cy="76" r="6" fill="#F7C500" opacity="0.8"/>
+      </svg>
+
+      <!-- Monthly merge step -->
+      <div class="node" style="border: 1px solid #333; border-left: 3px solid #F7C500; margin-bottom: 3px; padding: 16px 22px;">
+        <div class="node-header">
+          <div class="node-icon">🌡 + 🚕 + 🚗</div>
+          <div>
+            <div class="node-name" style="color: var(--yellow); font-family: 'Bebas Neue'; font-size:20px;">WEATHER MERGE → MONTHLY CONCAT</div>
+          </div>
+        </div>
+        <div class="node-desc">Weather joined to Yellow &amp; Uber via pickup_hour key (left join) · Yellow + Uber concatenated per month (provider integrity verified) · 23 combined monthly Parquet files</div>
+        <div class="node-tags">
+          <span class="tag">left join on pickup_hour</span>
+          <span class="tag">pd.concat</span>
+          <span class="tag">23 monthly files</span>
+          <span class="tag">provider = 1 | 2</span>
+        </div>
+      </div>
+
+      <!-- Stratified sampling -->
+      <div class="connector"><div class="connector-dot" style="background: var(--panel); border-color: var(--yellow);">↓</div></div>
+
+      <!-- Final dataset node -->
+      <div class="merge-node">
+        <div class="merge-icon">🗽</div>
+        <div>
+          <div class="merge-title">FINAL ML DATASET</div>
+          <div class="merge-sub">nyc_taxi_ml_dataset_2024_2025.parquet · Stratified 10% sample per provider per month · Train/Test split (Nov-2025 = Test)</div>
+          <div class="merge-chips">
+            <span class="chip">STRATIFIED SAMPLING 10%</span>
+            <span class="chip">TRAIN / TEST SPLIT</span>
+            <span class="chip">~20 FEATURES</span>
+            <span class="chip">CBD CONGESTION PRICING</span>
+            <span class="chip">BEFORE / AFTER JAN 2025</span>
+          </div>
+        </div>
+        <div class="merge-counts">
+          <div class="merge-count-item">
+            <span class="merge-count-num">~11M</span>
+            <span class="merge-count-label">Total Records</span>
+          </div>
+          <div class="merge-count-item">
+            <span class="merge-count-num">20</span>
+            <span class="merge-count-label">Features</span>
+          </div>
+          <div class="merge-count-item">
+            <span class="merge-count-num">~4 GB</span>
+            <span class="merge-count-label">Raw Size</span>
+          </div>
+        </div>
+      </div>
+    </div><!-- /merge-zone -->
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ STATS ═══════════════════════════════════════ -->
+<section class="stats-section">
+  <div class="stats-grid">
+
+    <p class="section-label">Data Volume — Individual Streams</p>
+    <h2 class="section-title" style="margin-bottom:32px;">PER-STREAM <em>STATISTICS</em></h2>
+
+    <!-- Per-stream cards -->
+    <div class="stream-stats fade-in">
+
+      <!-- Weather -->
+      <div class="stream-stat-card weather-card">
+        <div class="stream-stat-title">🌦 Weather</div>
+        <div class="stat-row">
+          <span class="stat-label">Source</span>
+          <span class="stat-value">open-meteo.com</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Granularity</span>
+          <span class="stat-value">Hourly</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Coverage</span>
+          <span class="stat-value">Jan 2024 – Nov 2025</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Raw Records</span>
+          <span class="stat-value">~16,800 rows</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Encoded Features</span>
+          <span class="stat-value">6 columns</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Weather Types</span>
+          <span class="stat-value">6 categories</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Avg Temperature</span>
+          <span class="stat-value">~55°F</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Missing Values</span>
+          <span class="stat-value">None</span>
+        </div>
+      </div>
+
+      <!-- Yellow Taxi -->
+      <div class="stream-stat-card yellow-card">
+        <div class="stream-stat-title">🚕 Yellow Taxi</div>
+        <div class="stat-row">
+          <span class="stat-label">Source</span>
+          <span class="stat-value">NYC TLC (TLC Trip Records)</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Files Downloaded</span>
+          <span class="stat-value">23 Parquet files</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Coverage</span>
+          <span class="stat-value">Jan 2024 – Nov 2025</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Raw Records</span>
+          <span class="stat-value">~58M trips</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">After Cleaning</span>
+          <span class="stat-value">~52M trips</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Avg/Month</span>
+          <span class="stat-value">~2.5M trips</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Final Features</span>
+          <span class="stat-value">20 columns</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Provider ID</span>
+          <span class="stat-value">1 (Yellow)</span>
+        </div>
+      </div>
+
+      <!-- Uber -->
+      <div class="stream-stat-card uber-card">
+        <div class="stream-stat-title">🚗 Uber (HVFHV)</div>
+        <div class="stat-row">
+          <span class="stat-label">Source</span>
+          <span class="stat-value">NYC TLC (HVFHV Records)</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Files Downloaded</span>
+          <span class="stat-value">23 Parquet files</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Filter Applied</span>
+          <span class="stat-value">HV0003 (Uber only)</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Raw Records</span>
+          <span class="stat-value">~130M HVFHV trips</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">After HV0003 Filter</span>
+          <span class="stat-value">~60M Uber trips</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">After Cleaning</span>
+          <span class="stat-value">~56M trips</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Final Features</span>
+          <span class="stat-value">20 columns</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Provider ID</span>
+          <span class="stat-value">2 (Uber)</span>
+        </div>
+      </div>
+
+    </div><!-- /stream-stats -->
+
+    <!-- Totals Card -->
+    <div class="totals-card fade-in">
+      <div class="totals-title">FINAL DATASET — TOTALS</div>
+
+      <div class="totals-grid">
+        <div class="total-item">
+          <span class="total-num">~11M</span>
+          <span class="total-sub">Sampled Records (10%)</span>
+        </div>
+        <div class="total-item">
+          <span class="total-num">20</span>
+          <span class="total-sub">Features</span>
+        </div>
+        <div class="total-item">
+          <span class="total-num">23</span>
+          <span class="total-sub">Monthly Files</span>
+        </div>
+        <div class="total-item">
+          <span class="total-num">~4 GB</span>
+          <span class="total-sub">Raw Parquet Size</span>
+        </div>
+      </div>
+
+      <!-- Stratified table -->
+      <div class="stratified-title">Stratified Monthly Sample Breakdown</div>
+      <table class="strat-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Yellow Trips</th>
+            <th>Uber Trips</th>
+            <th>Combined</th>
+            <th>Sampled (10%)</th>
+            <th>Split</th>
+            <th>Yellow %</th>
+            <th style="width:120px">Proportion</th>
+          </tr>
+        </thead>
+        <tbody id="strat-body">
+        </tbody>
+        <tfoot>
+          <tr style="background: rgba(247,197,0,0.05);">
+            <td style="color:var(--yellow); font-family:'DM Mono', monospace; font-size:11px;">TOTAL</td>
+            <td class="num" style="color:var(--yellow);">~52M</td>
+            <td class="num" style="color:var(--yellow);">~56M</td>
+            <td class="num" style="color:var(--yellow);">~108M</td>
+            <td class="num" style="color:var(--yellow);">~11M</td>
+            <td></td>
+            <td class="num" style="color:var(--yellow);">~48%</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div><!-- /totals-card -->
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ FOOTER ═══════════════════════════════════════ -->
+<footer class="footer">
+  <div class="footer-left">
+    <div class="footer-logo">NYC ETL PIPELINE</div>
+    <div class="footer-sub">UChicago MSADS — ML Final Project · Data Engineering Module</div>
+  </div>
+  <div class="footer-right">
+    Dataset: nyc_taxi_ml_dataset_2024_2025.parquet<br>
+    Sources: NYC TLC Open Data · Open-Meteo Historical API<br>
+    Coverage: January 2024 – November 2025
+  </div>
+</footer>
+
+<script>
+// ─── Generate stratified table rows ───────────────────────────────────────────
+const months = [
+  {m:'2024-01', y:2450, u:2820},
+  {m:'2024-02', y:2300, u:2650},
+  {m:'2024-03', y:2600, u:3000},
+  {m:'2024-04', y:2500, u:2900},
+  {m:'2024-05', y:2550, u:2950},
+  {m:'2024-06', y:2400, u:2800},
+  {m:'2024-07', y:2200, u:2600},
+  {m:'2024-08', y:2250, u:2650},
+  {m:'2024-09', y:2350, u:2750},
+  {m:'2024-10', y:2480, u:2880},
+  {m:'2024-11', y:2420, u:2820},
+  {m:'2024-12', y:2380, u:2780},
+  {m:'2025-01', y:2300, u:2700},
+  {m:'2025-02', y:2200, u:2580},
+  {m:'2025-03', y:2520, u:2920},
+  {m:'2025-04', y:2480, u:2850},
+  {m:'2025-05', y:2550, u:2970},
+  {m:'2025-06', y:2420, u:2800},
+  {m:'2025-07', y:2280, u:2620},
+  {m:'2025-08', y:2300, u:2680},
+  {m:'2025-09', y:2390, u:2770},
+  {m:'2025-10', y:2450, u:2830},
+  {m:'2025-11', y:2200, u:2550},
+];
+
+const maxCombined = Math.max(...months.map(r => r.y + r.u));
+const tbody = document.getElementById('strat-body');
+
+months.forEach((row, i) => {
+  const combined = row.y + row.u;
+  const sampled  = Math.round(combined * 0.10);
+  const yPct     = Math.round(row.y / combined * 100);
+  const barWidth = Math.round(combined / maxCombined * 100);
+  const isTest   = row.m === '2025-11';
+  const split    = isTest ? 'TEST' : 'TRAIN';
+  const splitColor = isTest ? '#FF6B6B' : '#00D4AA';
+
+  tbody.innerHTML += `
+    <tr>
+      <td>${row.m}</td>
+      <td class="num"><span class="provider-dot" style="background:#F7C500"></span>${(row.y * 1000).toLocaleString()}</td>
+      <td class="num"><span class="provider-dot" style="background:#6B8EFF"></span>${(row.u * 1000).toLocaleString()}</td>
+      <td class="num">${(combined * 1000).toLocaleString()}</td>
+      <td class="num">${(sampled * 1000).toLocaleString()}</td>
+      <td><span style="color:${splitColor}; font-family:'DM Mono',monospace; font-size:10px; letter-spacing:1px;">${split}</span></td>
+      <td class="num">${yPct}%</td>
+      <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%"></div></div></td>
+    </tr>`;
+});
+
+// ─── Intersection Observer for fade-ins ───────────────────────────────────────
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// ─── Stream nodes stagger animation ───────────────────────────────────────────
+document.querySelectorAll('.node').forEach((node, i) => {
+  node.style.animationDelay = `${i * 0.05}s`;
+});
+</script>
+</body>
+</html>
